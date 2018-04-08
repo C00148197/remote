@@ -1,174 +1,155 @@
 #include "AStar.h"
 
-AStar::AStar()
-{
-	currentDungeon = 0;
-	graphSetUp = false;
+AStar::AStar(NodeLayout &nodes) : m_nodeLayout(nodes) {
+	/********************************************//**
+												  *  ...  constructor for astar
+												  ***********************************************/
 }
 
-Vec2f AStar::getPosition(Vec2f * target, Vec2f * targetNode)
-{
-	//get index of waypoint of target position and set it as start point for astar
-	int startPoint = getWaypointIndex(*targetNode);
-	Vec2f waypointPlayer = searchNearestWaypoint(*target);
-	int endPoint = getWaypointIndex(waypointPlayer);
-	Vec2f m_targetPosition = { 0,0 };
+void AStar::calculatePath(Node* start, Node* dest, std::vector<Node*>& path) {
+	/********************************************//**
+												  *  ...  calculate astar path through nodes
+												  ***********************************************/
+	if (start != NULL) {
+		// computes the actual cost of each path from dest to start
+		ucs(dest, start, path);
 
-	if (startPoint != endPoint)
-	{
+		for (int i = 0; i < m_nodeLayout.getNoOfNodes() - 1; i++) {
+			// calculates the heuristic of each node using the actual cost
+			m_nodeLayout.getNodes()[i]->setHeuristic(m_nodeLayout.getNodes()[i]->getCost() * 0.9);
 
-		m_targetPosition = RunAStar(graph, &waypoints, &startPoint, &endPoint);
+			// sets cost to infinity
+			m_nodeLayout.getNodes()[i]->setCost(99999);
+		}
 
-	}
-	if (startPoint == endPoint)
-	{
-		m_targetPosition = *target;
-	}
-	return m_targetPosition;
-}
+		// sets up priority queue that compares the total cost and heuristic cost
+		std::priority_queue<Node*, std::vector<Node*>, NodeSearchCostComparerAStar> priorityQueue;
 
-Vec2f AStar::searchNearestWaypoint(Vec2f position)
-{
-	float differenceValue = std::numeric_limits<int>::max() - 10000;
-	int differenceIndex;
+		// set the cost to reach the start to be 0
+		start->setCost(0);
 
-	for (int i = 0; i < waypoints.size(); i++)
-	{
-		Vec2f difference;
-		difference.x = position.x - waypoints.at(i).x;
-		difference.y = position.y - waypoints.at(i).y;
+		// push the starting node to the queue and set it as marked
+		priorityQueue.push(start);
+		start->setMarked(true);
 
-		float diff = sqrtf((difference.x*difference.x) + (difference.y*difference.y));
-		if (diff < differenceValue)
-		{
-			differenceValue = diff;
-			differenceIndex = i;
+		// if there are nodes still in the queue and the top of the queue is not the destination
+		while (priorityQueue.size() != 0 && priorityQueue.top() != dest) {
+			// add all of the child nodes of the parent node in the top of the queue, that have not been marked, into the queue
+			// iterate through the list of arcs of the parent node
+			auto iter = priorityQueue.top()->getArcs().begin();
+			auto endIter = priorityQueue.top()->getArcs().end();
+
+			for (; iter != endIter; iter++) {
+				// adds the weight of the top of the queue to the weight of the the arc that it is looking at
+				float distC = priorityQueue.top()->getCost() + (*iter).getWeight();
+
+				// if this is less than the node weight of the node it is looking at
+				if (distC < (*iter).getNode()->getCost()) {
+					(*iter).getNode()->setCost(distC);
+					// sets the top of the queue to be the previous node of this node
+					(*iter).getNode()->setPrevious(priorityQueue.top());
+				}
+
+				if ((*iter).getNode()->getMarked() == false) {
+					// mark the node and add it to the queue - puts priority on the shortest path
+					priorityQueue.push((*iter).getNode());
+					(*iter).getNode()->setMarked(true);
+				}
+
+				if ((*iter).getNode() == dest) {
+					Node* temp = dest;
+
+					if (distC <= (*iter).getNode()->getCost()) {
+						if (path.empty() != true) {
+							path.clear();
+						}
+
+						while (temp != start) {
+							path.push_back(temp);
+							temp = temp->getPrevious(); // goes back to the previous node until it reaches the initial node
+						}
+						path.push_back(start);
+					}
+				}
+			}
+
+			priorityQueue.pop(); // occasionally throws exception while in debug, but not in release (c++ STL re-heap issue)
 		}
 	}
 
-	return waypoints.at(differenceIndex);
+	// resets nodes
+	for (int i = 0; i < m_nodeLayout.getNoOfNodes() - 1; i++) {
+		m_nodeLayout.getNodes()[i]->setMarked(false);
+	}
 }
 
-int AStar::getWaypointIndex(Vec2f pos)
-{
-	int index = 0;
-	for (int i = 0; i < waypoints.size(); i++)
-	{
-		if (waypoints.at(i).x == pos.x && waypoints.at(i).y == pos.y)
-		{
-			index = i;
+void AStar::ucs(Node* start, Node* dest, std::vector<Node*>& path) {
+	/********************************************//**
+												  *  ...  usc implementation
+												  ***********************************************/
+	if (start != NULL) {
+		for (int i = 0; i < m_nodeLayout.getNoOfNodes() - 1; i++) {
+			// sets cost to infinity
+			m_nodeLayout.getNodes()[i]->setCost(99999);
+		}
+
+		// sets up priority queue that compares the total cost and heuristic cost
+		std::priority_queue<Node*, std::vector<Node*>, NodeSearchCostComparerUCS> priorityQueue;
+
+		// set the cost to reach the start to be 0
+		start->setCost(0);
+
+		// push the starting node to the queue and set it as marked
+		priorityQueue.push(start);
+		start->setMarked(true);
+
+		// if there are nodes still in the queue and the top of the queue is not the destination
+		while (priorityQueue.size() != 0 && priorityQueue.top() != dest) {
+			// add all of the child nodes of the parent node in the top of the queue, that have not been marked, into the queue
+			// iterate through the list of arcs of the parent node
+			auto iter = priorityQueue.top()->getArcs().begin();
+			auto endIter = priorityQueue.top()->getArcs().end();
+
+			for (; iter != endIter; iter++) {
+				// adds the weight of the top of the queue to the weight of the the arc that it is looking at
+				float distC = priorityQueue.top()->getCost() + (*iter).getWeight();
+
+				// if this is less than the node weight of the node it is looking at
+				if (distC < (*iter).getNode()->getCost()) {
+					(*iter).getNode()->setCost(distC);
+
+					// sets the top of the queue to be the previous node of this node
+					(*iter).getNode()->setPrevious(priorityQueue.top());
+				}
+
+				if ((*iter).getNode()->getMarked() == false) {
+					// mark the node and add it to the queue - puts priority on the shortest path
+					priorityQueue.push((*iter).getNode());
+					(*iter).getNode()->setMarked(true);
+				}
+
+				if ((*iter).getNode() == dest) {
+					Node* temp = dest;
+
+					if (distC <= (*iter).getNode()->getCost()) {
+						if (path.empty() != true) {
+							path.clear();
+						}
+
+						while (temp != start) {
+							path.push_back(temp);
+							temp = temp->getPrevious(); // goes back to the previous node until it reaches the initial node
+						}
+						path.push_back(start);
+					}
+				}
+			}
+			priorityQueue.pop();
 		}
 	}
-	return index;
-}
 
-Vec2f AStar::RunAStar(Graph<pair<string, int>, int>* graph, std::vector<Vec2f>* waypoints, int * start, int * end)
-{
-	std::vector<Node *> thepath;
-	graph->aStar(graph->nodeArray()[*start], graph->nodeArray()[*end], thepath);//13 1
-	for (int i = thepath.size() - 1; i > -1; i--)
-	{
-		//std::cout << "Location : " << thepath.at(i)->data().first << " Cost : " << thepath.at(i)->data().second << " h(n) : " << thepath.at(i)->getEstimatedDistToDest() << std::endl;
-		if (thepath.at(i) == graph->nodeArray()[1])
-		{
-			std::cout << std::endl;
-		}
+	// resets nodes
+	for (int i = 0; i < m_nodeLayout.getNoOfNodes() - 1; i++) {
+		m_nodeLayout.getNodes()[i]->setMarked(false);
 	}
-
-	string temp = thepath.at(thepath.size() - 2)->data().first;
-	int tempInt = std::stoi(temp); // turn string into a int
-	return waypoints->at(tempInt);
-}
-
-float AStar::getDistanceToDestination(Vec2f * currentPosition, Vec2f * targetPosition)
-{
-	float differenceValue = std::numeric_limits<int>::max() - 10000;
-	int differenceIndex;
-
-	Vec2f difference;
-	difference.x = currentPosition->x - targetPosition->x;
-	difference.y = currentPosition->y - targetPosition->y;
-
-	float diff = sqrtf((difference.x*difference.x) + (difference.y*difference.y));
-
-	return diff;
-}
-
-int AStar::getCurrentDungeon()
-{
-	return currentDungeon;
-}
-
-void AStar::setCurrentDungeon(int dungeon)
-{
-	currentDungeon = dungeon;
-
-	if (currentDungeon == 1)
-	{
-		GraphSetUp("nodes.txt", "arcs.txt", 56);
-	}
-	else if (currentDungeon == 2)
-	{
-		GraphSetUp("nodes2.txt", "arcs2.txt", 18);
-	}
-	else if (currentDungeon == 3)
-	{
-		GraphSetUp("nodes3.txt", "arcs3.txt", 21);
-	}
-	else if (currentDungeon == 4)
-	{
-		GraphSetUp("nodes4.txt", "arcs4.txt", 38);
-	}
-	else if (currentDungeon == 5)
-	{
-		GraphSetUp("nodes5.txt", "arcs5.txt", 6);
-	}
-}
-
-std::string AStar::getCurrentMapType()
-{
-	return mapType;
-}
-
-void AStar::setCurrentMapType(std::string type)
-{
-	mapType = type;
-}
-
-void AStar::GraphSetUp(std::string nodes, std::string arcs, int num)
-{
-	if (graphSetUp)
-	{
-		std::vector<Vec2f>::iterator it = waypoints.begin();
-		while (it != waypoints.end())
-		{
-			it = waypoints.erase((it));
-		}
-		graph = NULL;
-	}
-	graph = new Graph<pair<string, int>, int>(num);
-	std::string temp;
-	int i = 0;
-	ifstream myfile;
-	float posX = 0;
-	float posY = 0;
-	myfile.open("AStarTextFiles/" + nodes);
-
-	while (myfile >> temp >> posX >> posY)
-	{
-		graph->addNode(pair<string, int>(temp, std::numeric_limits<int>::max() - 10000), i);
-		Vec2f waypoint = { posX, posY };
-		waypoints.push_back(waypoint);
-		i++;
-	}
-	myfile.close();
-
-	myfile.open("AStarTextFiles/" + arcs);
-	int from, to, weight;
-	while (myfile >> from >> to >> weight)
-	{
-		graph->addArc(from, to, weight);
-	}
-	myfile.close();
-	graphSetUp = true;
 }

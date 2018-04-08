@@ -23,10 +23,13 @@
     <ClCompile Include="External Dependencies\ResourceManager\ResourceManager.cpp" />
     <ClCompile Include="External Dependencies\SimpleJSON\JSON.cpp" />
     <ClCompile Include="External Dependencies\SimpleJSON\JSONValue.cpp" />
+    <ClCompile Include="src\Arc.cpp" />
     <ClCompile Include="src\AStar.cpp" />
     <ClCompile Include="src\LTimer.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\map.cpp" />
+    <ClCompile Include="src\Node.cpp" />
+    <ClCompile Include="src\NodeLayout.cpp" />
     <ClCompile Include="src\Tile.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -34,12 +37,13 @@
     <ClInclude Include="External Dependencies\ResourceManager\ResourceManager.h" />
     <ClInclude Include="External Dependencies\SimpleJSON\JSON.h" />
     <ClInclude Include="External Dependencies\SimpleJSON\JSONValue.h" />
+    <ClInclude Include="include\Arc.h" />
     <ClInclude Include="include\AStar.h" />
-    <ClInclude Include="include\Graph.h" />
-    <ClInclude Include="include\GraphArc.h" />
-    <ClInclude Include="include\GraphNode.h" />
     <ClInclude Include="include\LTimer.h" />
     <ClInclude Include="include\map.h" />
+    <ClInclude Include="include\Node.h" />
+    <ClInclude Include="include\NodeCostComparer.h" />
+    <ClInclude Include="include\NodeLayout.h" />
     <ClInclude Include="include\stdafx.h" />
     <ClInclude Include="include\Tile.h" />
   </ItemGroup>

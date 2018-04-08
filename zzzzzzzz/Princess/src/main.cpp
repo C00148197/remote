@@ -16,10 +16,10 @@ SDL_sem* gDataLock = NULL;
 int gData = -1;
 SDL_Rect r;
 std::vector<Tile*> tileVector;
-
+SDL_Point velo;
 
 int increment = -1;
-
+int dir = 0;
 int GAME_SCALE = 3;
 
 int main()
@@ -28,7 +28,8 @@ int main()
 	//SDL_Renderer* gameRenderer = SDL_CreateRenderer(gameWindow, -1, SDL_RENDERER_PRESENTVSYNC);
 	SDL_Event *e = new SDL_Event();
 
-
+	//init semaphore
+	gDataLock = SDL_CreateSemaphore(4);
 
 	unsigned int lastTime = 0;
 	float deltaTime = 0;
@@ -60,14 +61,6 @@ int main()
 	// sets renderer for window
 	SDL_Renderer* renderer = NULL;
 	renderer = SDL_CreateRenderer(gameWindow, -1, SDL_RENDERER_ACCELERATED);
-	//renderer = SDL_CreateRenderer(gameWindow, -1, SDL_RENDERER_PRESENTVSYNC);
-
-
-	//SDL_SetRenderDrawColor(renderer, 255, 0, 0, 200);
-	//SDL_RenderClear(renderer);
-
-
-	// Creat a rect at pos ( 50, 50 ) that's 50 pixels wide and 50 pixels high.
 
 	r.x = 0;
 	r.y = 0;
@@ -85,13 +78,20 @@ int main()
 			{
 				wall = true;
 			}
+
+			if (i == 5 && j >= 0 && j < 27)
+			{
+				wall = true;
+			}
+
+			if (i == 25 && j > 5 && j < 32)
+			{
+				wall = true;
+			}
 			
 			tileVector.push_back(new Tile(i * 16, j * 16, 16, 16, wall));
 		}
 	}
-
-
-
 
 	/////$$$$$$$$$$$$$$$$
 	//Run the threads
@@ -105,7 +105,8 @@ int main()
 
 	while (7 == 7)
 	{
-
+		dir = 0;
+		velo = SDL_Point{ 0,0 };
 
 		while (SDL_PollEvent(e))
 		{
@@ -117,16 +118,20 @@ int main()
 				switch (e->key.keysym.sym)
 				{
 				case SDLK_LEFT:
-					r.x -= 8;
+				
+					dir = 4;
 					break;
 				case SDLK_RIGHT:
-					r.x += 8;
+					
+					dir = 6;
 					break;
 				case SDLK_UP:
-					r.y -= 8;
+				
+					dir = 8;
 					break;
 				case SDLK_DOWN:
-					r.y += 8;
+					
+					dir = 2;
 					break;
 				default:
 					break;
@@ -134,20 +139,36 @@ int main()
 			}
 		}
 
+		if (dir == 2)
+		{
+			velo.y = 8;
+		}
+		else if (dir == 8)
+		{
+			velo.y = -8;
+		}
+		else if (dir == 4)
+		{
+			velo.x = -8;
+		}
+		else if (dir == 6)
+		{
+			velo.x = 8;
+		}
+
+
+		r.x += velo.x;
+		r.y += velo.y;
 
 
 		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 200); //default white
 
 		SDL_RenderClear(renderer);
 
-
-
-
 		for (int i = 0; i < tileVector.size(); i++)
 		{
 			tileVector.at(i)->render(renderer, i);
 		}
-
 
 		//Calculate and correct fps
 		int avgFPS = countedFrames / (fpsTimer.getTicks() / 1000.f);
@@ -220,18 +241,10 @@ void close()
 
 int worker(void* data)
 {
-	//    printf("%s starting...\n", data);
+//	srand(SDL_GetTicks());
 
-	//Pre thread random seeding
-	srand(SDL_GetTicks());
-
-	//Work 5 times
 	while (9 == 9)
 	{
-		//Wait randomly
-		//SDL_Delay(16 + rand() % 32);
-
-		//Lock
 		SDL_SemWait(gDataLock);
 
 		increment++;
@@ -242,52 +255,44 @@ int worker(void* data)
 			increment = 0;
 		}
 
-		//for (int i = 0; i < tileVector.size(); i++)
-		//{
-		//    if (tileVector.at(i)->getSolid())
-		//    {
-		//        SDL_Rect temp = tileVector.at(i)->getRect();
-
-		//        if (SDL_HasIntersection(&temp, &r))
-		//        {
-		//            cout << "coll" << endl;
-		//        }
-		//    }
-		//}
-
-
-
-
-		//Print pre work data
-		//    printf("%s gets %d\n", data, gData);
-
-		//"Work"
 		gData = rand() % 256;
 
-		//Print post work data
-		//printf("%s sets %d\n\n", data, gData);
+		int tempIndex = increment;
 
-		//Unlock
+		if (tempIndex > 1023)
+		{
+			tempIndex = 0;
+		}
+
+		//unlock data
 		SDL_SemPost(gDataLock);
 
-		//    cout << "inc" << increment << endl;
-		if (tileVector.at(increment)->getSolid())
+		if (tileVector.at(tempIndex)->getSolid())
 		{
-			//    cout << "solid check" << endl;
-			SDL_Rect temp = tileVector.at(increment)->getRect();
+			SDL_Rect temp = tileVector.at(tempIndex)->getRect();
 
 			if (SDL_HasIntersection(&temp, &r))
 			{
 				cout << "coll" << endl;
+				if (dir == 2)
+				{
+					r.y -= 8;
+				}
+				if (dir == 8)
+				{
+					r.y += 8;
+				}
+				if (dir == 4)
+				{
+					r.x += 8;
+				}
+				if (dir == 6)
+				{
+					r.x -= 8;
+				}
 			}
 		}
-
-
-		//Wait randomly
-		//    SDL_Delay(16 + rand() % 640);
 	}
-
-	//printf("%s finished!\n\n", data);
 
 	return 0;
 }
